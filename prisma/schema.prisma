@@ -1,0 +1,274 @@
+// Bewust Bestaan - Database Schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========== AUTH & USERS ==========
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  role          Role     @default(MEMBER)
+  emailVerified Boolean  @default(true) // Auto-verified for MVP
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  profile        Profile?
+  topics         Topic[]
+  topicReplies   TopicReply[]
+  dmThreadsA     DmThread[]    @relation("UserA")
+  dmThreadsB     DmThread[]    @relation("UserB")
+  dmMessages     DmMessage[]
+  entitlements   Entitlement[]
+  resolvedAlerts SafetyAlert[] @relation("ResolvedBy")
+
+  @@map("users")
+}
+
+model Profile {
+  userId    String   @id
+  username  String   @unique
+  avatarUrl String?
+  bio       String?  @db.Text
+  allowDm   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+enum Role {
+  MEMBER
+  ADMIN
+}
+
+// ========== COMMUNITY ==========
+
+model Category {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?  @db.Text
+  icon        String?
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  topics Topic[]
+
+  @@map("categories")
+}
+
+model Topic {
+  id         String      @id @default(cuid())
+  categoryId String
+  title      String
+  body       String      @db.Text
+  tags       String[]
+  authorId   String
+  status     TopicStatus @default(OPEN)
+  viewCount  Int         @default(0)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  category Category     @relation(fields: [categoryId], references: [id])
+  author   User         @relation(fields: [authorId], references: [id])
+  replies  TopicReply[]
+
+  @@index([categoryId])
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("topics")
+}
+
+model TopicReply {
+  id        String   @id @default(cuid())
+  topicId   String
+  authorId  String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  topic  Topic @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  author User  @relation(fields: [authorId], references: [id])
+
+  @@index([topicId])
+  @@index([authorId])
+  @@map("topic_replies")
+}
+
+enum TopicStatus {
+  OPEN
+  LOCKED
+}
+
+// ========== PRIVATE MESSAGING ==========
+
+model DmThread {
+  id            String   @id @default(cuid())
+  userAId       String
+  userBId       String
+  createdAt     DateTime @default(now())
+  lastMessageAt DateTime @default(now())
+
+  userA    User        @relation("UserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB    User        @relation("UserB", fields: [userBId], references: [id], onDelete: Cascade)
+  messages DmMessage[]
+
+  @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
+  @@index([lastMessageAt])
+  @@map("dm_threads")
+}
+
+model DmMessage {
+  id        String   @id @default(cuid())
+  threadId  String
+  senderId  String
+  body      String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  thread DmThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender User     @relation(fields: [senderId], references: [id])
+
+  @@index([threadId])
+  @@index([senderId])
+  @@index([createdAt])
+  @@map("dm_messages")
+}
+
+// ========== CONTENT ==========
+
+model BlogPost {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  excerpt     String?  @db.Text
+  body        String   @db.Text
+  coverUrl    String?
+  published   Boolean  @default(false)
+  featured    Boolean  @default(false)
+  readTime    Int?     // in minutes
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([published])
+  @@index([featured])
+  @@index([createdAt])
+  @@map("blog_posts")
+}
+
+model Exercise {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  description String?  @db.Text
+  body        String   @db.Text
+  audioUrl    String?
+  icon        String   @default("🧘")
+  duration    Int?     // in minutes
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([published])
+  @@index([createdAt])
+  @@map("exercises")
+}
+
+// ========== COURSES (PAYWALL) ==========
+
+model Course {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  description String   @db.Text
+  coverUrl    String?
+  price       Int      @default(0) // in cents
+  published   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  modules CourseModule[]
+
+  @@index([published])
+  @@map("courses")
+}
+
+model CourseModule {
+  id          String  @id @default(cuid())
+  courseId    String
+  title       String
+  body        String  @db.Text
+  videoUrl    String?
+  orderIndex  Int
+  isPreview   Boolean @default(false)
+  duration    Int?    // in minutes
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([courseId])
+  @@index([orderIndex])
+  @@map("course_modules")
+}
+
+model Entitlement {
+  id          String   @id @default(cuid())
+  userId      String
+  productType String   // 'COURSE', 'MEMBERSHIP', etc.
+  productId   String?
+  active      Boolean  @default(true)
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([productType])
+  @@map("entitlements")
+}
+
+// ========== SAFETY & MODERATION ==========
+
+model SafetyAlert {
+  id         String     @id @default(cuid())
+  type       AlertType
+  refId      String
+  riskLevel  RiskLevel
+  reason     String     @db.Text
+  content    String?    @db.Text // Snapshot of content
+  createdAt  DateTime   @default(now())
+  resolvedAt DateTime?
+  resolvedBy String?
+  notes      String?    @db.Text
+
+  resolver User? @relation("ResolvedBy", fields: [resolvedBy], references: [id])
+
+  @@index([resolvedAt])
+  @@index([riskLevel])
+  @@index([createdAt])
+  @@map("safety_alerts")
+}
+
+enum AlertType {
+  TOPIC
+  REPLY
+  PRIVATE
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+}

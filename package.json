@@ -1,0 +1,43 @@
+{
+  "name": "bewust-bestaan",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio"
+  },
+  "dependencies": {
+    "next": "14.2.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "@prisma/client": "^5.11.0",
+    "next-auth": "^4.24.7",
+    "bcryptjs": "^2.4.3",
+    "stripe": "^14.21.0",
+    "resend": "^3.2.0",
+    "@react-email/components": "^0.0.16",
+    "date-fns": "^3.6.0",
+    "zod": "^3.22.4",
+    "clsx": "^2.1.0",
+    "tailwind-merge": "^2.2.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/react": "^18.2.69",
+    "@types/bcryptjs": "^2.4.6",
+    "prisma": "^5.11.0",
+    "typescript": "^5.4.3",
+    "tailwindcss": "^3.4.1",
+    "postcss": "^8.4.38",
+    "autoprefixer": "^10.4.19",
+    "tsx": "^4.7.1",
+    "@types/next-auth": "^3.15.0"
+  }
+}
